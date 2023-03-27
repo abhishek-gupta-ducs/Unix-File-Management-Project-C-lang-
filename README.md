@@ -1,7 +1,7 @@
 # AOS_project_sem_4
 file editor program is command line base program , which provide following functionalities     	
 1. Creating a file in any mode provided by the user (mode in octal number only)     
-        <b>./fe -c filename mode(in octal no)
+        <b>./fe -c filename mode(in octal no)</b>
 
 2. Reading from a file      		
     a. User can read whole file.     		
