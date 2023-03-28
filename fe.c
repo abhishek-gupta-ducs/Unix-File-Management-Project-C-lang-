@@ -88,8 +88,10 @@ void writing(char* file, long ByteToWrite , int where_to){
     int fd, ByteWrite = 0;
     char buff[BUFFERSIZE];
     if ((fd = open(file,O_CREAT | O_WRONLY , 0666))== -1)
+    {
         perror("Error while opening file");
         return;
+    }
     if (where_to >= 0)
         lseek(fd,where_to,0); //if user wants to write from begining to anywhere
     else
