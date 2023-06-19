@@ -47,7 +47,7 @@ void create (char* file , char* mode)
     close(fd);
 }
 
-void reading (char* file , int bytes_left , int where_to , int write_file_Desc)
+int reading (char* file , int bytes_left , int where_to , int write_file_Desc)
 {   
     //reading function to read no of bytes of a file from specific position
     char buff[BUFFERSIZE];
@@ -56,7 +56,7 @@ void reading (char* file , int bytes_left , int where_to , int write_file_Desc)
     if ((fd = open(file,O_RDONLY)) == -1)
     {
         perror("Error in opening file");
-        return;
+        return -1;
     }
     if (where_to != 0)
     {
@@ -64,7 +64,7 @@ void reading (char* file , int bytes_left , int where_to , int write_file_Desc)
         if (lseek(fd,where_to,0)==-1) 
         {
                 perror("Error in jumping to specific position ");
-                return;
+                return -1;
         }    
     }
     int count,totalBytesRead = 0;
@@ -79,23 +79,41 @@ void reading (char* file , int bytes_left , int where_to , int write_file_Desc)
         bytes_left -= count;
         totalBytesRead +=count;
     }
-    if (count == -1)
+    if (count == -1){
         perror("Error while reading");
+        return -1;
+    }
     else
-        printf("\nTotal Bytes = %d\n",totalBytesRead); 
+        //printf("\nTotal Bytes = %d\n",totalBytesRead); 
+        return totalBytesRead;
     close(fd);
 }
-void writing(char* file, long ByteToWrite , int where_to){
+void writing(char* file, long ByteToWrite , int where_to, bool overWrite){
     /*Writing function to write into a file, some no of bytes from a specific position*/
     int fd, ByteWrite = 0;
     char buff[BUFFERSIZE];
-    if ((fd = open(file,O_CREAT | O_WRONLY , 0666))== -1)
+    int temp_fd;
+    int flag = 0;//flag to check if the file is going to be modified in between
+    if ((fd = open(file,O_CREAT | O_WRONLY , 0666))== -1){
         perror("Error while opening file");
         return;
-    if (where_to >= 0)
+    }
+    if(where_to >= 0){
         lseek(fd,where_to,0); //if user wants to write from begining to anywhere
-    else
+        flag = 1;
+        if(overWrite == false)
+            temp_fd = open("temp_file",O_CREAT|O_WRONLY,0666); //creating a temporary file to store the data that is going to lost.
+    }
+    else{
         lseek(fd,0,2); //if user wants to write from the end
+    }
+
+    if(!overWrite && flag==1){
+        //it means user wants to modify the file in between instead of appending the data at the end of file
+        //so here I am making another temp file to store the information that is going to be lost when user is writing.
+        reading(file,__INT_MAX__,where_to,temp_fd);
+    }
+
     printf("Enter data to write to file. Press Ctrl-D to finish.\n");
     /*Logic is that user is writing data in buffer buff
       but program will only write those no of bytes to file, which 
@@ -114,6 +132,12 @@ void writing(char* file, long ByteToWrite , int where_to){
         ByteWrite += count; //maintaing the count of bytes written by the user
     }
     printf("\n\nBytes written to file : %d\n",ByteWrite);
+    
+    if(!overWrite && flag==1){
+        //appending the lost data at the end of merged file 
+        reading("temp_file",__INT_MAX__,0,fd);
+    }
+    unlink("temp_file"); //removing temporary file
     close(fd);
 }
 
@@ -149,8 +173,8 @@ void help ()
     printf("   ./fe -op --r -f filename -B BytesToRead\n");
     printf("   ./fe -op --r -f filename\n\n");
     printf("To Write into a file : \n");
-    printf("  ./fe -op --w -f filename -B BytesToWrite -O OffSet\n");
-    printf("          Enter negative no as offset to \n          append data at end of file\n");
+    printf("  ./fe -op --w -f filename -B BytesToWrite -O OffSet ---OW\n");
+    printf("          By default data will get append at the end \n          or you can enter negative no as offset to\n          append data at end of file\n");
     printf("  ./fe -op --w -f filename -B BytesToWrite\n");
     printf("  ./fe -op --w -f filename\n\n");
     printf("To Copy a file : \n");
@@ -158,7 +182,8 @@ void help ()
     printf("To get stats of a file : \n");
     printf("  ./fe -op --stat -f filename\n\n");
     printf("Flags and their corresponding operations\n");
-    printf("-help  : To get Documentation of program\n");
+    printf("( Each flag is case insensitive )\n");
+    printf("--help  : To get Documentation of program\n");
     printf("-op    : To denote the operation, user wants to perform on the file\n");
     printf("--c    : To create a file\n");
     printf("-f     : To enter file name\n");
@@ -167,6 +192,7 @@ void help ()
     printf("-B     : No of Bytes to Read\n");
     printf("-O     : Offset Of file\n Negative no as Byte offset\n with write operation will append \nthe data at the end of file\n");
     printf("--w    : To write into a file\n");
+    printf("---ow  : To overwrite into a file\n");
     printf("--cp   : To copy a file.\n");
     printf("-S     : Source file or path\n");
     printf("-D     : Destination file or path\n");
@@ -227,8 +253,7 @@ int main(int argc, char** argv){
         }
         //Checking if mode is send by the user
         if(!strcmp(mode,"NULL")){
-            printf("Error: Please send mode of the file\n");
-            return 1;
+            mode = "0664";
         }
         create(file,mode); //create(fileName,Mode)
     }
@@ -266,7 +291,9 @@ int main(int argc, char** argv){
         }
         //calling reading function
         //reading(fileName, BytesToRead , StartOffset ,Terminal fileDescriptor)
-        reading(file,bytes_i,offset_i,1);
+        int totalBytesRead = reading(file,bytes_i,offset_i,1);
+        if(totalBytesRead!=-1) 
+            printf("\nTotal Bytes = %d\n",totalBytesRead);
     }
 
     //if write operation
@@ -283,7 +310,7 @@ int main(int argc, char** argv){
             return 1;
         }
         else if(!strcmp(bytes_c,"NULL")){
-            bytes_i = __LONG_LONG_MAX__; //if user does not specify number of bytes to read
+            bytes_i = __LONG_LONG_MAX__; //if user does not specify number of bytes to write
         }
         else{
             bytes_i = strtol(bytes_c,NULL,10);
@@ -302,7 +329,7 @@ int main(int argc, char** argv){
         }
         //calling writing function
         //writing(fileName, ByteToWrite , start offset)
-        writing(file,bytes_i,offset_i);
+        writing(file,bytes_i,offset_i,isOverWrite(argv,argc));
     }
 
     //if user wants to copy a file to new destination
@@ -325,7 +352,9 @@ int main(int argc, char** argv){
             if we send destination file descriptor instead of 1 as 
             writing descriptor argument **/
             //reading(Source fileName, BytesToRead , StartOffset , Destination fileDescriptor)
-            reading(source,__INT_MAX__,0,dest_FD); 
+            if(reading(source,__INT_MAX__,0,dest_FD)>=0){
+                printf("File Copied Succesfully to path %s\n",destination);
+            } 
         }
     }
 

@@ -151,3 +151,12 @@ char* getOffset(char** argv, int argc){
     }
     return "NULL";
 }
+
+bool isOverWrite(char** argv, int argc){
+    for(int i=0; i<argc; i++){
+        if(!strcmp(argv[i],"---ow")||!strcmp(argv[i],"---oW")||!strcmp(argv[i],"---Ow")||!strcmp(argv[i],"---OW")){
+            return true;
+        }
+    }
+    return false;
+}

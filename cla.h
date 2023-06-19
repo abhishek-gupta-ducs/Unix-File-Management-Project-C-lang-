@@ -18,4 +18,8 @@ char* getMode(char** argv, int argc);
 char* getBytes(char** argv, int argc);
 char* getOffset(char** argv, int argc);
 
+/**Function to check if the overwrite flag is there in the arguments entered by the user*/
+
+bool isOverWrite(char** argv, int argc);
+
 #endif
